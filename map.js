@@ -157,11 +157,8 @@ map.on('load', async () => {
     const filteredStations = computeStationTraffic(stations, timeFilter);
 
     radiusScale
-      .domain([
-        0,
-        d3.max(filteredStations, (d) => d.totalTraffic) || 1,
-      ])
-      .range(timeFilter === -1 ? [0, 6] : [1, 12]);
+      .domain([0, 300])
+      .range(timeFilter === -1 ? [0, 6] : [1, 10]);
 
     svg
       .selectAll('circle')
