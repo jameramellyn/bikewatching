@@ -32,6 +32,14 @@ const map = new mapboxgl.Map({
 // Select SVG layer
 const svg = d3.select('#map').select('svg');
 
+function updateSVGSize() {
+  const container = document.getElementById('map');
+  svg
+    .attr('width', container.offsetWidth)
+    .attr('height', container.offsetHeight);
+}
+
+updateSVGSize();
 // Convert station longitude/latitude to screen coordinates
 function getCoords(station) {
   const point = new mapboxgl.LngLat(+station.lon, +station.lat);
@@ -104,6 +112,9 @@ map.on('load', async () => {
 
   map.on('move', updatePositions);
   map.on('zoom', updatePositions);
-  map.on('resize', updatePositions);
+  map.on('resize', () => {
+    updateSVGSize();
+    updatePositions();
+  });
   map.on('moveend', updatePositions);
 });
