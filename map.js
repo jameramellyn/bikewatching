@@ -2,24 +2,22 @@
 import mapboxgl from 'https://cdn.jsdelivr.net/npm/mapbox-gl@2.15.0/+esm';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 
-// Check that Mapbox GL JS is loaded
 console.log('Mapbox GL JS Loaded:', mapboxgl);
 
-// Set your Mapbox access token here
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam1mZXJuYW5kbyIsImEiOiJjbXA5Y29scGgwMGVkMnNvbXJyZTdubHczIn0.iTdNAe8M77vw7pLJxwY1-A';
 
-// Bluebikes station JSON URL
-const INPUT_BLUEBIKES_CSV_URL =
+const INPUT_BLUEBIKES_STATIONS_URL =
   'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
 
-// Shared bike lane style
+const INPUT_BLUEBIKES_TRIPS_URL =
+  'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv';
+
 const bikeLaneStyle = {
   'line-color': '#32D400',
   'line-width': 5,
   'line-opacity': 0.6,
 };
 
-// Initialize the map
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/streets-v12',
@@ -29,27 +27,25 @@ const map = new mapboxgl.Map({
   maxZoom: 18,
 });
 
-// Select SVG layer
 const svg = d3.select('#map').select('svg');
 
 function updateSVGSize() {
   const container = document.getElementById('map');
+
   svg
     .attr('width', container.offsetWidth)
     .attr('height', container.offsetHeight);
 }
 
-updateSVGSize();
-// Convert station longitude/latitude to screen coordinates
 function getCoords(station) {
   const point = new mapboxgl.LngLat(+station.lon, +station.lat);
   const { x, y } = map.project(point);
   return { cx: x, cy: y };
 }
 
-// Wait for map to load before adding data
+updateSVGSize();
+
 map.on('load', async () => {
-  // Boston bike lanes
   map.addSource('boston_route', {
     type: 'geojson',
     data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson',
@@ -62,7 +58,6 @@ map.on('load', async () => {
     paint: bikeLaneStyle,
   });
 
-  // Cambridge bike lanes
   map.addSource('cambridge_route', {
     type: 'geojson',
     data: 'https://data.cambridgema.gov/resource/7t2a-j5yt.geojson',
@@ -75,33 +70,67 @@ map.on('load', async () => {
     paint: bikeLaneStyle,
   });
 
-  // Load Bluebikes station data
   let jsonData;
+  let trips;
 
   try {
-    jsonData = await d3.json(INPUT_BLUEBIKES_CSV_URL);
-    console.log('Loaded JSON Data:', jsonData);
+    jsonData = await d3.json(INPUT_BLUEBIKES_STATIONS_URL);
+    trips = await d3.csv(INPUT_BLUEBIKES_TRIPS_URL);
+
+    console.log('Loaded station JSON:', jsonData);
+    console.log('Loaded trip CSV:', trips);
   } catch (error) {
-    console.error('Error loading JSON:', error);
+    console.error('Error loading data:', error);
     return;
   }
 
-  const stations = jsonData.data.stations;
-  console.log('Stations Array:', stations);
+  let stations = jsonData.data.stations;
 
-  // Draw station circles
+  const departures = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.start_station_id,
+  );
+
+  const arrivals = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.end_station_id,
+  );
+
+  stations = stations.map((station) => {
+    const id = station.short_name;
+
+    station.arrivals = arrivals.get(id) ?? 0;
+    station.departures = departures.get(id) ?? 0;
+    station.totalTraffic = station.arrivals + station.departures;
+
+    return station;
+  });
+
+  const radiusScale = d3
+    .scaleSqrt()
+    .domain([0, d3.max(stations, (d) => d.totalTraffic)])
+    .range([0, 25]);
+
   const circles = svg
     .selectAll('circle')
     .data(stations)
     .enter()
     .append('circle')
-    .attr('r', 5)
+    .attr('r', (d) => radiusScale(d.totalTraffic))
     .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
-    .attr('opacity', 0.8);
+    .attr('opacity', 0.8)
+    .each(function (d) {
+      d3.select(this)
+        .append('title')
+        .text(
+          `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`,
+        );
+    });
 
-  // Update station circle positions
   function updatePositions() {
     circles
       .attr('cx', (d) => getCoords(d).cx)
