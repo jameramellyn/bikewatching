@@ -59,3 +59,45 @@ p {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 10;
 }
+
+#map svg circle,
+.legend > div {
+  --color-departures: steelblue;
+  --color-arrivals: darkorange;
+  --color: color-mix(
+    in oklch,
+    var(--color-departures) calc(100% * var(--departure-ratio)),
+    var(--color-arrivals)
+  );
+
+  fill: var(--color);
+  background: var(--color);
+}
+
+.legend {
+  display: flex;
+  gap: 1px;
+  margin-block: 1rem;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.legend > div {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  color: white;
+  font-weight: 600;
+}
+
+.legend > div:nth-child(1) {
+  text-align: left;
+}
+
+.legend > div:nth-child(2) {
+  text-align: center;
+}
+
+.legend > div:nth-child(3) {
+  text-align: right;
+}

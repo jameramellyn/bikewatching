@@ -1,7 +1,8 @@
 import mapboxgl from 'https://cdn.jsdelivr.net/npm/mapbox-gl@2.15.0/+esm';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 
-mapboxgl.accessToken = 'pk.eyJ1Ijoiam1mZXJuYW5kbyIsImEiOiJjbXA5Y29scGgwMGVkMnNvbXJyZTdubHczIn0.iTdNAe8M77vw7pLJxwY1-A';
+mapboxgl.accessToken =
+  'pk.eyJ1Ijoiam1mZXJuYW5kbyIsImEiOiJjbXA5Y29scGgwMGVkMnNvbXJyZTdubHczIn0.iTdNAe8M77vw7pLJxwY1-A';
 
 const STATIONS_URL =
   'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
@@ -10,8 +11,14 @@ const TRIPS_URL =
   'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv';
 
 let timeFilter = -1;
+
 let departuresByMinute = Array.from({ length: 1440 }, () => []);
 let arrivalsByMinute = Array.from({ length: 1440 }, () => []);
+
+const stationFlow = d3
+  .scaleQuantize()
+  .domain([0, 1])
+  .range([0, 0.5, 1]);
 
 const map = new mapboxgl.Map({
   container: 'map',
@@ -35,7 +42,10 @@ function minutesSinceMidnight(date) {
 
 function formatTime(minutes) {
   const date = new Date(0, 0, 0, 0, minutes);
-  return date.toLocaleString('en-US', { timeStyle: 'short' });
+
+  return date.toLocaleString('en-US', {
+    timeStyle: 'short',
+  });
 }
 
 function filterByMinute(tripsByMinute, minute) {
@@ -43,14 +53,17 @@ function filterByMinute(tripsByMinute, minute) {
     return tripsByMinute.flat();
   }
 
-  const minMinute = (minute - 60 + 1440) % 1440;
-  const maxMinute = (minute + 60) % 1440;
+  let minMinute = (minute - 60 + 1440) % 1440;
+  let maxMinute = (minute + 60) % 1440;
 
   if (minMinute > maxMinute) {
-    return tripsByMinute.slice(minMinute).concat(tripsByMinute.slice(0, maxMinute)).flat();
-  }
+    let beforeMidnight = tripsByMinute.slice(minMinute);
+    let afterMidnight = tripsByMinute.slice(0, maxMinute);
 
-  return tripsByMinute.slice(minMinute, maxMinute).flat();
+    return beforeMidnight.concat(afterMidnight).flat();
+  } else {
+    return tripsByMinute.slice(minMinute, maxMinute).flat();
+  }
 }
 
 function computeStationTraffic(stations, timeFilter = -1) {
@@ -69,18 +82,23 @@ function computeStationTraffic(stations, timeFilter = -1) {
   return stations.map((station) => {
     const id = station.short_name;
 
+    const departuresCount = departures.get(id) ?? 0;
+    const arrivalsCount = arrivals.get(id) ?? 0;
+
     return {
       ...station,
-      arrivals: arrivals.get(id) ?? 0,
-      departures: departures.get(id) ?? 0,
-      totalTraffic: (arrivals.get(id) ?? 0) + (departures.get(id) ?? 0),
+      departures: departuresCount,
+      arrivals: arrivalsCount,
+      totalTraffic: departuresCount + arrivalsCount,
     };
   });
 }
 
 function getCoords(station) {
   const point = new mapboxgl.LngLat(+station.lon, +station.lat);
+
   const { x, y } = map.project(point);
+
   return { cx: x, cy: y };
 }
 
@@ -150,7 +168,6 @@ map.on('load', async () => {
     .selectAll('circle')
     .data(computeStationTraffic(stations), (d) => d.short_name)
     .join('circle')
-    .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
     .attr('opacity', 0.8);
@@ -162,21 +179,31 @@ map.on('load', async () => {
   }
 
   function updateScatterPlot(timeFilter) {
-    const filteredStations = computeStationTraffic(stations, timeFilter);
+    const filteredStations = computeStationTraffic(
+      stations,
+      timeFilter,
+    );
 
     radiusScale
-      .domain([0, d3.max(filteredStations, (d) => d.totalTraffic) || 1])
+      .domain([
+        0,
+        d3.max(filteredStations, (d) => d.totalTraffic) || 1,
+      ])
       .range(timeFilter === -1 ? [0, 25] : [3, 50]);
 
     circles = svg
       .selectAll('circle')
       .data(filteredStations, (d) => d.short_name)
       .join('circle')
-      .attr('fill', 'steelblue')
       .attr('stroke', 'white')
       .attr('stroke-width', 1)
       .attr('opacity', 0.8)
       .attr('r', (d) => radiusScale(d.totalTraffic))
+      .style('--departure-ratio', (d) =>
+        d.totalTraffic === 0
+          ? 0.5
+          : stationFlow(d.departures / d.totalTraffic),
+      )
       .on('mouseenter', (event, d) => {
         tooltip
           .style('opacity', 1)
@@ -200,8 +227,12 @@ map.on('load', async () => {
   }
 
   const timeSlider = document.getElementById('time-slider');
-  const selectedTime = document.getElementById('selected-time');
-  const anyTimeLabel = document.getElementById('any-time');
+
+  const selectedTime =
+    document.getElementById('selected-time');
+
+  const anyTimeLabel =
+    document.getElementById('any-time');
 
   function updateTimeDisplay() {
     timeFilter = Number(timeSlider.value);
@@ -217,11 +248,17 @@ map.on('load', async () => {
     updateScatterPlot(timeFilter);
   }
 
-  timeSlider.addEventListener('input', updateTimeDisplay);
+  timeSlider.addEventListener(
+    'input',
+    updateTimeDisplay,
+  );
+
   updateTimeDisplay();
 
   map.on('move', updatePositions);
+
   map.on('zoom', updatePositions);
+
   map.on('resize', () => {
     updateSVGSize();
     updatePositions();
