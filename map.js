@@ -6,7 +6,7 @@ import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 console.log('Mapbox GL JS Loaded:', mapboxgl);
 
 // Set your Mapbox access token here
-mapboxgl.accessToken = 'mytoken';
+mapboxgl.accessToken = 'pk.eyJ1Ijoiam1mZXJuYW5kbyIsImEiOiJjbXA5Y29scGgwMGVkMnNvbXJyZTdubHczIn0.iTdNAe8M77vw7pLJxwY1-A';
 
 // Bluebikes station JSON URL
 const INPUT_BLUEBIKES_CSV_URL =
