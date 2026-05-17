@@ -158,7 +158,7 @@ map.on('load', async () => {
 
     radiusScale
       .domain([0, 300])
-      .range(timeFilter === -1 ? [0, 6] : [1, 10]);
+      .range(timeFilter === -1 ? [0, 6] : [2.5, 11]);
 
     svg
       .selectAll('circle')
