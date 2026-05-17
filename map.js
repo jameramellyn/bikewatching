@@ -42,10 +42,7 @@ function minutesSinceMidnight(date) {
 
 function formatTime(minutes) {
   const date = new Date(0, 0, 0, 0, minutes);
-
-  return date.toLocaleString('en-US', {
-    timeStyle: 'short',
-  });
+  return date.toLocaleString('en-US', { timeStyle: 'short' });
 }
 
 function filterByMinute(tripsByMinute, minute) {
@@ -59,7 +56,6 @@ function filterByMinute(tripsByMinute, minute) {
   if (minMinute > maxMinute) {
     let beforeMidnight = tripsByMinute.slice(minMinute);
     let afterMidnight = tripsByMinute.slice(0, maxMinute);
-
     return beforeMidnight.concat(afterMidnight).flat();
   } else {
     return tripsByMinute.slice(minMinute, maxMinute).flat();
@@ -81,7 +77,6 @@ function computeStationTraffic(stations, timeFilter = -1) {
 
   return stations.map((station) => {
     const id = station.short_name;
-
     const departuresCount = departures.get(id) ?? 0;
     const arrivalsCount = arrivals.get(id) ?? 0;
 
@@ -96,18 +91,22 @@ function computeStationTraffic(stations, timeFilter = -1) {
 
 function getCoords(station) {
   const point = new mapboxgl.LngLat(+station.lon, +station.lat);
-
   const { x, y } = map.project(point);
-
   return { cx: x, cy: y };
 }
 
 function updateSVGSize() {
   const container = document.getElementById('map');
-
   svg
     .attr('width', container.offsetWidth)
     .attr('height', container.offsetHeight);
+}
+
+function updatePositions() {
+  svg
+    .selectAll('circle')
+    .attr('cx', (d) => getCoords(d).cx)
+    .attr('cy', (d) => getCoords(d).cy);
 }
 
 map.on('load', async () => {
@@ -117,32 +116,22 @@ map.on('load', async () => {
     type: 'geojson',
     data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson',
   });
-
   map.addLayer({
     id: 'boston-bike-lanes',
     type: 'line',
     source: 'boston_route',
-    paint: {
-      'line-color': '#32D400',
-      'line-width': 5,
-      'line-opacity': 0.6,
-    },
+    paint: { 'line-color': '#32D400', 'line-width': 5, 'line-opacity': 0.6 },
   });
 
   map.addSource('cambridge_route', {
     type: 'geojson',
     data: 'https://data.cambridgema.gov/resource/7t2a-j5yt.geojson',
   });
-
   map.addLayer({
     id: 'cambridge-bike-lanes',
     type: 'line',
     source: 'cambridge_route',
-    paint: {
-      'line-color': '#32D400',
-      'line-width': 5,
-      'line-opacity': 0.6,
-    },
+    paint: { 'line-color': '#32D400', 'line-width': 5, 'line-opacity': 0.6 },
   });
 
   const jsonData = await d3.json(STATIONS_URL);
@@ -164,34 +153,14 @@ map.on('load', async () => {
 
   const radiusScale = d3.scaleSqrt().range([0, 25]);
 
-  let circles = svg
-    .selectAll('circle')
-    .data(computeStationTraffic(stations), (d) => d.short_name)
-    .join('circle')
-    .attr('stroke', 'white')
-    .attr('stroke-width', 1)
-    .attr('opacity', 0.8);
-
-  function updatePositions() {
-    circles
-      .attr('cx', (d) => getCoords(d).cx)
-      .attr('cy', (d) => getCoords(d).cy);
-  }
-
   function updateScatterPlot(timeFilter) {
-    const filteredStations = computeStationTraffic(
-      stations,
-      timeFilter,
-    );
+    const filteredStations = computeStationTraffic(stations, timeFilter);
 
     radiusScale
-      .domain([
-        0,
-        d3.max(filteredStations, (d) => d.totalTraffic) || 1,
-      ])
+      .domain([0, d3.max(filteredStations, (d) => d.totalTraffic) || 1])
       .range(timeFilter === -1 ? [0, 25] : [3, 50]);
 
-    circles = svg
+    svg
       .selectAll('circle')
       .data(filteredStations, (d) => d.short_name)
       .join('circle')
@@ -227,12 +196,8 @@ map.on('load', async () => {
   }
 
   const timeSlider = document.getElementById('time-slider');
-
-  const selectedTime =
-    document.getElementById('selected-time');
-
-  const anyTimeLabel =
-    document.getElementById('any-time');
+  const selectedTime = document.getElementById('selected-time');
+  const anyTimeLabel = document.getElementById('any-time');
 
   function updateTimeDisplay() {
     timeFilter = Number(timeSlider.value);
@@ -248,17 +213,11 @@ map.on('load', async () => {
     updateScatterPlot(timeFilter);
   }
 
-  timeSlider.addEventListener(
-    'input',
-    updateTimeDisplay,
-  );
-
+  timeSlider.addEventListener('input', updateTimeDisplay);
   updateTimeDisplay();
 
   map.on('move', updatePositions);
-
   map.on('zoom', updatePositions);
-
   map.on('resize', () => {
     updateSVGSize();
     updatePositions();
