@@ -10,6 +10,16 @@ body {
   font-family: Arial, sans-serif;
 }
 
+header {
+  display: flex;
+  gap: 1em;
+  align-items: baseline;
+}
+
+header label {
+  margin-left: auto;
+}
+
 h1,
 p {
   margin-left: 20px;
